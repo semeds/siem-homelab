@@ -52,18 +52,18 @@ This home Security Operations Center (SOC) lab provides a controlled environment
 │        │               │                │              │
 │        └───────────────┴────────────────┘              │
 │                  Virtual Network                        │
-│                (192.168.100.0/24)                       │
+│                (/24)                       │
 └─────────────────────────────────────────────────────────┘
 ```
 
 ### Components
 
-|Component|Role|IP Address|OS|
-|---|---|---|---|
-|SIEM Server|Log aggregation & analysis|192.168.100.10|Ubuntu 22.04|
-|Windows Client|Log source & attack target|192.168.100.20|Windows 10/11|
-|Linux Client|Log source & attack target|192.168.100.30|Ubuntu 22.04|
-|Kali Linux (Optional)|Attack machine|192.168.100.40|Kali Linux|
+| Component             | Role                       | IP Address | OS            |
+| --------------------- | -------------------------- | ---------- | ------------- |
+| SIEM Server           | Log aggregation & analysis |            | Ubuntu 22.04  |
+| Windows Client        | Log source & attack target |            | Windows 10/11 |
+| Linux Client          | Log source & attack target |            | Ubuntu 22.04  |
+| Kali Linux (Optional) | Attack machine             |            | Kali Linux    |
 
 ---
 
