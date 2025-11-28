@@ -96,23 +96,28 @@ Type "Event Viewer" in the Windows search bar and click on Windows Logs then Sec
 
 Next, filter the logs using "Filter Current Log" on the right side of the window. It will give you a pop up and you should fill it out like this:
 ![](attachments/filter-unsuccess.png)
+
 Click OK
 
 Now it will show all the logs with Event ID 4625 or the failed logons. The most recent attempts will be at the top, if not, hit the refresh icon in the tab to the side. 
 
 Click on an event log and we'll see some information at the bottom:
 ![](attachments/unsuccess.png)
+
 We can see the first line says an "account failed to log on", which would be one of the brute force attempts that we made.
 If we continue scrolling in that section, we'll see the Network information and Failure information.
 
 ![](attachments/unsuccess-fail-reason.png)
+
 The failure reason and the status code 0xC000006D are displayed, mentioning a bad username or password
 
 ![](attachments/unsuccess-brute-network.png)
+
 Here we see the name and IP address of the attacking machine
 
 For successful log on attempts, filter the current log and put in 4624 as the event ID like below:
 ![](attachments/filter-success.png)
+
 Click OK
 
 Now double-click on one of your recent log in attempts
@@ -129,16 +134,14 @@ Under Network Information, we see that while the workstation name is the name fo
 ## 🎓 Lessons Learned
 
 ### What Worked Well
-
-- Detection rule triggered correctly
 - Clear log evidence available
 - Easy to trace attack timeline
 ### Skills Developed
 
 - Log analysis and pattern recognition
-- Detection rule creation
 - Incident response procedures
 - Timeline reconstruction
+- Logon event types
 
 ## 📚 Additional Resources
 
