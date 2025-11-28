@@ -65,8 +65,4 @@ You can adjust tools to your preference; below is the general stack this lab ass
 
 
 
-## Repository Structure
 
-A suggested structure for this project:
-
->>>>>>> origin/main
